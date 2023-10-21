@@ -15,6 +15,8 @@ str_inner_constant  = @{ char_constant* }
 char_constant       = { "\'" ~  ("=")
                         |!("=") ~ ANY } 
 
+HAN = _{ '\u{4e00}'..'\u{9fa5}' }
+
 operator = _{ arithmetic_operator | string_operator | logical_operator }
     
 arithmetic_operator = _{ add | subtract | multiply | divide | power }     
@@ -35,6 +37,55 @@ logical_operator = _{ equal | not_equal | greater_or_equal | greater
     less            = { "<" }
     greater_or_equal= { ">=" }
     less_or_equal   = { "<=" }
+
+sdata = { "[" ~ sdata_item ~ ("," ~ sdata_item)* ~ "]" }
+
+sdata_item = _{ date_item | area_item | indicator_item | unit_item}
+
+date_item = _{ "日期" ~ ":" ~ date_value }
+
+date_value = { year ~ (accumulative | (current ~ beginning_or_end?) | beginning_or_end)? }
+    year = _{ year_value ~ "年" }
+    year_value = { ASCII_NONZERO_DIGIT ~ ASCII_DIGIT{3} }
+    accumulative = { accumulative_quarter | accumulative_month }
+    accumulative_quarter = _{ "1-" ~ quarter ~ "季度" }
+    accumulative_month = _{ "1-" ~ month ~ "月" }
+    current = _{ quarter | month }
+    quarter = _{ quarter_value ~ "季度" }
+    quarter_value = { "1" | "2" | "3" | "4" }
+    month = _{ month_value ~ "月" }
+    month_value = { ("1" ~ ("0" | "1" | "2")?) | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" }
+    beginning_or_end = _{ beginning | end }
+    beginning = { "初" }
+    end = { "末" }
+
+area_item = _{ "地区" ~ ":" ~ area_value }
+
+area_value = { (HAN | "（" | "）" | ASCII_ALPHA)+ }
+
+indicator_item = _{ "指标" ~ ":" ~ indicator_value }
+
+indicator_value = { (HAN | "（" | "）" | ASCII_ALPHA)+ }
+
+unit_item = _{ "单位" ~ ":" ~ unit_value }
+
+unit_value = { YUAN | QIAN_YUAN | WAN_YUAN | YI_YUAN 
+    | REN | WAN_REN | YI_REN
+    | YUAN_PER_REN | YUAN_PER_WAN_REN | WAN_YUAN_PER_REN | WAN_YUAN_PER_WAN_REN
+    | PERCENT | NONE }
+    YUAN = { "元" }
+    QIAN_YUAN = { "千元" }
+    WAN_YUAN = { "万元" }
+    YI_YUAN = { "亿元" }
+    REN = { "人" }
+    WAN_REN = { "万人" }
+    YI_REN = { "亿人" }
+    YUAN_PER_REN = { "元/人" }
+    YUAN_PER_WAN_REN = { "元/万人" }
+    WAN_YUAN_PER_REN = { "万元/人" }
+    WAN_YUAN_PER_WAN_REN = { "万元/万人" }
+    PERCENT = { "%" }
+    NONE = { "" }
 
 function = _{ abs | sum | product | average | negate | days | right | left | iff | isblank | custom_function  }
     abs     = { "ABS" ~ "(" ~ expr ~ ")" }
@@ -81,7 +132,7 @@ iterator = { "{" ~ expr ~ ("," ~ expr)*? ~ "}" }
 
 expr = { term ~ (operator ~ term)* }
 term = _{ number | "(" ~ expr ~ ")" | string_double_quote 
-        | string_single_quote | logical_function | function  | boolean | reference | iterator } 
+        | string_single_quote | logical_function | function  | boolean | reference | sdata | iterator } 
 term_constant = _{ string_constant }
 
 formula = _{ SOI ~ "=" ~ expr ~ EOI | SOI ~ term_constant ~ EOI } 

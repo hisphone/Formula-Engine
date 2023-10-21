@@ -300,6 +300,9 @@ pub mod calculate;
 /// The Structs and Enums for the calculation.
 pub mod types;
 
+/// The statastical data types.
+pub mod statistical_data;
+
 /// Parses a string using `pest` and `pest::prec_climber`.
 pub mod parse_formula;
 

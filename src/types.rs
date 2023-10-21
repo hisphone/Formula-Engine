@@ -1,4 +1,5 @@
 use chrono::{DateTime, FixedOffset};
+
 /// Defines Excel Functions.
 #[derive(Debug, Copy, Clone)]
 pub enum Function {
@@ -57,7 +58,7 @@ pub enum Boolean {
 /// The result of an evaluation.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
-    Number(f32),
+    Number(f64),
     Text(String),
     Boolean(Boolean),
     Iterator(Vec<Value>),

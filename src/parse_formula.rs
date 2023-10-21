@@ -1,9 +1,14 @@
 extern crate pest;
+use std::collections::HashMap;
+
 use pest::Parser;
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
 pub struct GrammarParser;
 
+use crate::statistical_data::SData;
+use crate::statistical_data::StatisticalDate;
+use crate::statistical_data::StatisticalUnit;
 use crate::types;
 
 use pest::prec_climber::Assoc;
@@ -40,11 +45,12 @@ fn parse_string_constant(parse_result: pest::iterators::Pair<Rule>) -> types::Fo
 /// Parses a string and stores it in Formula Enum.
 pub fn parse_string_to_formula(
     s: &str,
-    f: Option<&impl Fn(String, Vec<f32>) -> types::Value>,
+    f: Option<&impl Fn(String, Vec<f64>) -> types::Value>,
+    map: &HashMap<SData, f64>
 ) -> types::Formula {
     match parse_string(&s) {
         Some(parse_result) => match parse_result.as_rule() {
-            Rule::expr => build_formula_with_climber(parse_result.into_inner(), f),
+            Rule::expr => build_formula_with_climber(parse_result.into_inner(), f, map),
             Rule::string_constant => parse_string_constant(parse_result),
             _ => types::Formula::Value(types::Value::Error(types::Error::Parse)),
         },
@@ -52,8 +58,32 @@ pub fn parse_string_to_formula(
     }
 }
 
+fn build_formula_sdata(pair: pest::iterators::Pair<Rule>, map: &HashMap<SData, f64>) -> types::Formula {
+    let mut date = StatisticalDate::default();
+    let mut area = String::new();
+    let mut indicator = String::new();
+    let mut unit = StatisticalUnit::None;
+    for pair in pair.into_inner() {
+        match pair.as_rule() {
+            Rule::date_value => date = StatisticalDate::from_pairs(pair.into_inner()),
+            Rule::area_value => area = pair.as_str().parse::<String>().unwrap(),
+            Rule::indicator_value => indicator = pair.as_str().parse::<String>().unwrap(),
+            Rule::unit_value => unit = StatisticalUnit::from_pairs(pair),
+            _ => unreachable!(),
+        }
+    }
+    let sdata = SData {
+        date,
+        area,
+        indicator,
+        unit,
+    };
+    let value = map.get(&sdata).unwrap();
+    types::Formula::Value(types::Value::Number(*value))
+}
+
 fn build_formula_number(pair: pest::iterators::Pair<Rule>) -> types::Formula {
-    let x = pair.as_str().parse::<f32>().unwrap();
+    let x = pair.as_str().parse::<f64>().unwrap();
     let value = types::Value::Number(x);
     types::Formula::Value(value)
 }
@@ -81,7 +111,8 @@ fn build_formula_boolean(boolean_value: bool) -> types::Formula {
 fn build_formula_unary_operator(
     unary_operation: Rule,
     pair: pest::iterators::Pair<Rule>,
-    f: Option<&impl Fn(String, Vec<f32>) -> types::Value>,
+    f: Option<&impl Fn(String, Vec<f64>) -> types::Value>,
+    map: &HashMap<SData, f64>
 ) -> types::Formula {
     let op_type = match unary_operation {
         Rule::abs => types::Operator::Function(types::Function::Abs),
@@ -91,7 +122,7 @@ fn build_formula_unary_operator(
     };
     let operation = types::Expression {
         op: op_type,
-        values: vec![build_formula_with_climber(pair.into_inner(), f)],
+        values: vec![build_formula_with_climber(pair.into_inner(), f, map)],
     };
     types::Formula::Operation(operation)
 }
@@ -103,11 +134,12 @@ fn build_formula_reference(pair: pest::iterators::Pair<Rule>) -> types::Formula 
 
 fn build_formula_iterator(
     pair: pest::iterators::Pair<Rule>,
-    f: Option<&impl Fn(String, Vec<f32>) -> types::Value>,
+    f: Option<&impl Fn(String, Vec<f64>) -> types::Value>,
+    map: &HashMap<SData, f64>
 ) -> types::Formula {
     let mut vec = Vec::new();
     for term in pair.into_inner() {
-        vec.push(build_formula_with_climber(term.into_inner(), f));
+        vec.push(build_formula_with_climber(term.into_inner(), f,map));
     }
     types::Formula::Iterator(vec)
 }
@@ -115,7 +147,8 @@ fn build_formula_iterator(
 fn build_formula_collective_operator(
     collective_operation: Rule,
     pair: pest::iterators::Pair<Rule>,
-    f: Option<&impl Fn(String, Vec<f32>) -> types::Value>,
+    f: Option<&impl Fn(String, Vec<f64>) -> types::Value>,
+    map: &HashMap<SData, f64>
 ) -> types::Formula {
     let mut vec = Vec::new();
     for term in pair.into_inner() {
@@ -126,7 +159,7 @@ fn build_formula_collective_operator(
         {
             vec.push(types::Formula::Value(types::Value::Blank))
         } else {
-            vec.push(build_formula_with_climber(term.into_inner(), f))
+            vec.push(build_formula_with_climber(term.into_inner(), f, map))
         }
     }
     let op_type = rule_to_function_operator(collective_operation);
@@ -157,7 +190,8 @@ fn rule_to_function_operator(collective_operation: Rule) -> types::Operator {
 fn build_formula_collective_operator_average(
     collective_operation: Rule,
     pair: pest::iterators::Pair<Rule>,
-    f: Option<&impl Fn(String, Vec<f32>) -> types::Value>,
+    f: Option<&impl Fn(String, Vec<f64>) -> types::Value>,
+    map: &HashMap<SData, f64>
 ) -> types::Formula {
     let mut vec = Vec::new();
     for term in pair.into_inner() {
@@ -168,7 +202,7 @@ fn build_formula_collective_operator_average(
         {
             vec.push(types::Formula::Value(types::Value::Number(0.0)))
         } else {
-            vec.push(build_formula_with_climber(term.into_inner(), f))
+            vec.push(build_formula_with_climber(term.into_inner(), f, map))
         }
     }
     let op_type = rule_to_function_operator(collective_operation);
@@ -182,7 +216,8 @@ fn build_formula_collective_operator_average(
 fn build_formula_collective_operator_and(
     collective_operation: Rule,
     pair: pest::iterators::Pair<Rule>,
-    f: Option<&impl Fn(String, Vec<f32>) -> types::Value>,
+    f: Option<&impl Fn(String, Vec<f64>) -> types::Value>,
+    map: &HashMap<SData, f64>
 ) -> types::Formula {
     let mut vec = Vec::new();
     for term in pair.into_inner() {
@@ -195,7 +230,7 @@ fn build_formula_collective_operator_and(
                 types::Boolean::False,
             )))
         } else {
-            vec.push(build_formula_with_climber(term.into_inner(), f))
+            vec.push(build_formula_with_climber(term.into_inner(), f, map))
         }
     }
     let op_type = rule_to_function_operator(collective_operation);
@@ -208,7 +243,8 @@ fn build_formula_collective_operator_and(
 
 fn build_formula_iff(
     pair: pest::iterators::Pair<Rule>,
-    f: Option<&impl Fn(String, Vec<f32>) -> types::Value>,
+    f: Option<&impl Fn(String, Vec<f64>) -> types::Value>,
+    map: &HashMap<SData, f64>
 ) -> types::Formula {
     let mut vec = Vec::new();
     for term in pair.into_inner() {
@@ -219,7 +255,7 @@ fn build_formula_iff(
         {
             vec.push(types::Formula::Value(types::Value::Blank))
         } else {
-            vec.push(build_formula_with_climber(term.into_inner(), f))
+            vec.push(build_formula_with_climber(term.into_inner(), f, map))
         }
     }
     let operation = types::Expression {
@@ -231,17 +267,17 @@ fn build_formula_iff(
 
 fn build_formula_custom_function(
     pair: pest::iterators::Pair<Rule>,
-    f: Option<&impl Fn(String, Vec<f32>) -> types::Value>,
+    f: Option<&impl Fn(String, Vec<f64>) -> types::Value>,
 ) -> types::Formula {
     let mut vec = Vec::new();
     for field in pair.clone().into_inner() {
         match field.as_rule() {
             Rule::expr =>
-            // vec.push(field.into_inner().as_str().parse::<f32>().unwrap()),
+            // vec.push(field.into_inner().as_str().parse::<f64>().unwrap()),
             // if custom formula is undefined, then don't have anything to push into vec
             {
                 let x = field.into_inner().as_str();
-                let y = x.parse::<f32>();
+                let y = x.parse::<f64>();
                 match y {
                     Ok(_) => vec.push(y.unwrap()),
                     Err(_) => (),
@@ -304,7 +340,8 @@ fn build_formula_binary_operator(
 /// Builds Formula Enum using a `pest-PrecClimber`.
 fn build_formula_with_climber(
     expression: pest::iterators::Pairs<Rule>,
-    f: Option<&impl Fn(String, Vec<f32>) -> types::Value>,
+    f: Option<&impl Fn(String, Vec<f64>) -> types::Value>,
+    map: &HashMap<SData, f64>
 ) -> types::Formula {
     let climber = PrecClimber::new(vec![
         Operator::new(Rule::concat, Assoc::Left),
@@ -320,30 +357,31 @@ fn build_formula_with_climber(
     climber.climb(
         expression,
         |pair: pest::iterators::Pair<Rule>| match pair.as_rule() {
+            Rule::sdata => build_formula_sdata(pair, map),
             Rule::number => build_formula_number(pair),
             Rule::string_double_quote => build_formula_string_double_quote(pair),
             Rule::string_single_quote => build_formula_string_single_quote(pair),
             Rule::t => build_formula_boolean(true),
             Rule::f => build_formula_boolean(false),
-            Rule::abs => build_formula_unary_operator(Rule::abs, pair, f),
-            Rule::sum => build_formula_collective_operator(Rule::sum, pair, f),
-            Rule::product => build_formula_collective_operator(Rule::product, pair, f),
-            Rule::average => build_formula_collective_operator_average(Rule::average, pair, f),
-            Rule::or => build_formula_collective_operator(Rule::or, pair, f),
-            Rule::and => build_formula_collective_operator_and(Rule::and, pair, f),
-            Rule::xor => build_formula_collective_operator(Rule::xor, pair, f),
-            Rule::not => build_formula_unary_operator(Rule::not, pair, f),
+            Rule::abs => build_formula_unary_operator(Rule::abs, pair, f, map),
+            Rule::sum => build_formula_collective_operator(Rule::sum, pair, f, map),
+            Rule::product => build_formula_collective_operator(Rule::product, pair, f, map),
+            Rule::average => build_formula_collective_operator_average(Rule::average, pair, f, map),
+            Rule::or => build_formula_collective_operator(Rule::or, pair, f, map),
+            Rule::and => build_formula_collective_operator_and(Rule::and, pair, f, map),
+            Rule::xor => build_formula_collective_operator(Rule::xor, pair, f, map),
+            Rule::not => build_formula_unary_operator(Rule::not, pair, f, map),
             Rule::reference => build_formula_reference(pair),
-            Rule::iterator => build_formula_iterator(pair, f),
-            Rule::negate => build_formula_unary_operator(Rule::negate, pair, f),
-            Rule::expr => build_formula_with_climber(pair.into_inner(), f),
-            Rule::days => build_formula_collective_operator(Rule::days, pair, f),
-            Rule::right => build_formula_collective_operator(Rule::right, pair, f),
-            Rule::left => build_formula_collective_operator(Rule::left, pair, f),
+            Rule::iterator => build_formula_iterator(pair, f, map),
+            Rule::negate => build_formula_unary_operator(Rule::negate, pair, f, map),
+            Rule::expr => build_formula_with_climber(pair.into_inner(), f, map),
+            Rule::days => build_formula_collective_operator(Rule::days, pair, f, map),
+            Rule::right => build_formula_collective_operator(Rule::right, pair, f, map),
+            Rule::left => build_formula_collective_operator(Rule::left, pair, f, map),
             Rule::custom_function => build_formula_custom_function(pair, f),
-            Rule::iff => build_formula_iff(pair, f),
-            Rule::isblank => build_formula_collective_operator(Rule::isblank, pair, f),
-            Rule::atomic_expr => build_formula_with_climber(pair.into_inner(), f),
+            Rule::iff => build_formula_iff(pair, f, map),
+            Rule::isblank => build_formula_collective_operator(Rule::isblank, pair, f, map),
+            Rule::atomic_expr => build_formula_with_climber(pair.into_inner(), f, map),
             _ => unreachable!(),
         },
         |lhs: types::Formula, op: pest::iterators::Pair<Rule>, rhs: types::Formula| match op

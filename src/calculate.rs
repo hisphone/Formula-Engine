@@ -1,18 +1,21 @@
+use std::collections::HashMap;
+
 use crate::parse_formula;
+use crate::statistical_data::SData;
 use crate::types;
 use chrono::{DateTime, Duration, FixedOffset};
-type NoCustomFunction<'a> = &'a fn(String, Vec<f32>) -> types::Value;
+type NoCustomFunction<'a> = &'a fn(String, Vec<f64>) -> types::Value;
 
-fn calculate_divide_operator(num1: f32, num2: f32) -> f32 {
+fn calculate_divide_operator(num1: f64, num2: f64) -> f64 {
     num1 / num2
 }
 
-fn is_float_int(num: f32) -> bool {
-    //((num as i32) as f32) == num
-    (((num as i32) as f32) - num).abs() == 0.0
+fn is_float_int(num: f64) -> bool {
+    //((num as i32) as f64) == num
+    (((num as i32) as f64) - num).abs() == 0.0
 }
 
-fn calculate_power_operator(num1: f32, num2: f32) -> f32 {
+fn calculate_power_operator(num1: f64, num2: f64) -> f64 {
     if is_float_int(num2) {
         num1.powi(num2 as i32)
     } else {
@@ -59,13 +62,13 @@ fn calculate_string_operator(
 fn calcualte_numeric_operator_rhs_text(
     t: String,
     rhs: types::Value,
-    f: fn(num1: f32, num2: f32) -> f32,
+    f: fn(num1: f64, num2: f64) -> f64,
 ) -> types::Value {
-    match t.parse::<f32>() {
+    match t.parse::<f64>() {
         Ok(nl) => match rhs {
             types::Value::Boolean(_) => rhs,
             types::Value::Error(_) => rhs,
-            types::Value::Text(t) => match t.parse::<f32>() {
+            types::Value::Text(t) => match t.parse::<f64>() {
                 Ok(nr) => types::Value::Number(f(nl, nr)),
                 Err(_) => types::Value::Error(types::Error::Cast),
             },
@@ -79,15 +82,15 @@ fn calcualte_numeric_operator_rhs_text(
 }
 
 fn calculate_numeric_operator_rhs_number(
-    l: f32,
+    l: f64,
     lhs: types::Value,
     rhs: types::Value,
-    f: fn(num1: f32, num2: f32) -> f32,
+    f: fn(num1: f64, num2: f64) -> f64,
 ) -> types::Value {
     match rhs {
         types::Value::Boolean(_) => rhs,
         types::Value::Error(_) => rhs,
-        types::Value::Text(t) => match t.parse::<f32>() {
+        types::Value::Text(t) => match t.parse::<f64>() {
             Ok(nr) => types::Value::Number(f(l, nr)),
             Err(_) => types::Value::Error(types::Error::Cast),
         },
@@ -108,15 +111,15 @@ fn calculate_numeric_operator_rhs_number(
 }
 
 fn calculate_numeric_operator_product_rhs_number(
-    l: f32,
+    l: f64,
     lhs: types::Value,
     rhs: types::Value,
-    f: fn(num1: f32, num2: f32) -> f32,
+    f: fn(num1: f64, num2: f64) -> f64,
 ) -> types::Value {
     match rhs {
         types::Value::Boolean(_) => rhs,
         types::Value::Error(_) => rhs,
-        types::Value::Text(t) => match t.parse::<f32>() {
+        types::Value::Text(t) => match t.parse::<f64>() {
             Ok(nr) => types::Value::Number(f(l, nr)),
             Err(_) => types::Value::Error(types::Error::Cast),
         },
@@ -142,7 +145,7 @@ fn calculate_numeric_operator_product_rhs_number(
 fn calculate_numeric_operator_rhs_iterator(
     mut lhs_vec: Vec<types::Value>,
     rhs: types::Value,
-    f: fn(num1: f32, num2: f32) -> f32,
+    f: fn(num1: f64, num2: f64) -> f64,
 ) -> types::Value {
     match rhs {
         types::Value::Number(_) => {
@@ -190,7 +193,7 @@ fn subtract_days_from_date(d: DateTime<FixedOffset>, rhs: types::Value) -> types
 fn calculate_numeric_operator(
     lhs: types::Value,
     rhs: types::Value,
-    f: fn(num1: f32, num2: f32) -> f32,
+    f: fn(num1: f64, num2: f64) -> f64,
 ) -> types::Value {
     //println!("{:?}::{:?}", lhs, rhs);
     match lhs {
@@ -207,7 +210,7 @@ fn calculate_numeric_operator(
 fn calculate_numeric_product_operator(
     lhs: types::Value,
     rhs: types::Value,
-    f: fn(num1: f32, num2: f32) -> f32,
+    f: fn(num1: f64, num2: f64) -> f64,
 ) -> types::Value {
     //println!("{:?}::{:?}", lhs, rhs);
     match lhs {
@@ -223,15 +226,15 @@ fn calculate_numeric_product_operator(
 
 fn calculate_average_operator_rhs_number(
     element_count: &mut i32,
-    l: f32,
+    l: f64,
     lhs: types::Value,
     rhs: types::Value,
-    f: fn(num1: f32, num2: f32) -> f32,
+    f: fn(num1: f64, num2: f64) -> f64,
 ) -> types::Value {
     match rhs {
         types::Value::Boolean(_) => rhs,
         types::Value::Error(_) => rhs,
-        types::Value::Text(t) => match t.parse::<f32>() {
+        types::Value::Text(t) => match t.parse::<f64>() {
             Ok(nr) => types::Value::Number(f(l, nr)),
             Err(_) => types::Value::Error(types::Error::Cast),
         },
@@ -266,7 +269,7 @@ fn calculate_average_operator_rhs_iterator(
     element_count: &mut i32,
     mut lhs_vec: Vec<types::Value>,
     rhs: types::Value,
-    f: fn(num1: f32, num2: f32) -> f32,
+    f: fn(num1: f64, num2: f64) -> f64,
 ) -> types::Value {
     match rhs {
         types::Value::Number(_) => {
@@ -288,7 +291,7 @@ fn calculate_average_operator(
     element_count: &mut i32,
     lhs: types::Value,
     rhs: types::Value,
-    f: fn(num1: f32, num2: f32) -> f32,
+    f: fn(num1: f64, num2: f64) -> f64,
 ) -> types::Value {
     match lhs {
         types::Value::Boolean(_) => lhs,
@@ -311,7 +314,7 @@ fn calculate_average_operator(
 fn calculate_comparison_operator(
     lhs: types::Value,
     rhs: types::Value,
-    f: fn(num1: f32, num2: f32) -> bool,
+    f: fn(num1: f64, num2: f64) -> bool,
 ) -> types::Value {
     match lhs {
         types::Value::Text(l) => match rhs {
@@ -739,14 +742,15 @@ fn convert_iterator_to_result_xor(
 fn get_values(
     mut exp: types::Expression,
     f: Option<&impl Fn(String) -> types::Value>,
+    map: &HashMap<SData, f64>,
 ) -> (types::Value, types::Value) {
     (
         match exp.values.pop() {
-            Some(formula) => calculate_formula(formula, f),
+            Some(formula) => calculate_formula(formula, f, map),
             None => types::Value::Error(types::Error::Argument),
         },
         match exp.values.pop() {
-            Some(formula) => calculate_formula(formula, f),
+            Some(formula) => calculate_formula(formula, f, map),
             None => types::Value::Error(types::Error::Argument),
         },
     )
@@ -755,9 +759,10 @@ fn get_values(
 fn get_value(
     mut exp: types::Expression,
     f: Option<&impl Fn(String) -> types::Value>,
+    map: &HashMap<SData, f64>,
 ) -> types::Value {
     match exp.values.pop() {
-        Some(formula) => calculate_formula(formula, f),
+        Some(formula) => calculate_formula(formula, f, map),
         None => types::Value::Error(types::Error::Argument),
     }
 }
@@ -765,14 +770,15 @@ fn get_value(
 fn get_date_values(
     mut exp: types::Expression,
     f: Option<&impl Fn(String) -> types::Value>,
+    map: &HashMap<SData, f64>,
 ) -> (types::Value, types::Value) {
     (
         match exp.values.pop() {
-            Some(formula) => calculate_formula(formula, f),
+            Some(formula) => calculate_formula(formula, f, map),
             None => types::Value::Error(types::Error::Argument),
         },
         match exp.values.pop() {
-            Some(formula) => calculate_formula(formula, f),
+            Some(formula) => calculate_formula(formula, f, map),
             None => types::Value::Error(types::Error::Argument),
         },
     )
@@ -781,23 +787,24 @@ fn get_date_values(
 fn get_number_and_string_values(
     mut exp: types::Expression,
     f: Option<&impl Fn(String) -> types::Value>,
+    map: &HashMap<SData, f64>,
 ) -> (types::Value, types::Value) {
     if exp.values.len() == 1 {
         (
             types::Value::Number(1.0),
             match exp.values.pop() {
-                Some(formula) => calculate_formula(formula, f),
+                Some(formula) => calculate_formula(formula, f, map),
                 None => types::Value::Error(types::Error::Argument),
             },
         )
     } else {
         (
             match exp.values.pop() {
-                Some(formula) => calculate_formula(formula, f),
+                Some(formula) => calculate_formula(formula, f, map),
                 None => types::Value::Error(types::Error::Argument),
             },
             match exp.values.pop() {
-                Some(formula) => calculate_formula(formula, f),
+                Some(formula) => calculate_formula(formula, f, map),
                 None => types::Value::Error(types::Error::Argument),
             },
         )
@@ -807,18 +814,19 @@ fn get_number_and_string_values(
 fn get_iff_values(
     mut exp: types::Expression,
     f: Option<&impl Fn(String) -> types::Value>,
+    map: &HashMap<SData, f64>,
 ) -> (types::Value, types::Value, types::Value) {
     (
         match exp.values.pop() {
-            Some(formula) => calculate_formula(formula, f),
+            Some(formula) => calculate_formula(formula, f, map),
             None => types::Value::Blank,
         },
         match exp.values.pop() {
-            Some(formula) => calculate_formula(formula, f),
+            Some(formula) => calculate_formula(formula, f, map),
             None => types::Value::Blank,
         },
         match exp.values.pop() {
-            Some(formula) => calculate_formula(formula, f),
+            Some(formula) => calculate_formula(formula, f, map),
             None => types::Value::Blank,
         },
     )
@@ -827,10 +835,11 @@ fn get_iff_values(
 fn calculate_iterator(
     mut vec: Vec<types::Formula>,
     f: Option<&impl Fn(String) -> types::Value>,
+    map: &HashMap<SData, f64>,
 ) -> types::Value {
     let mut value_vec = Vec::new();
     while let Some(top) = vec.pop() {
-        value_vec.push(calculate_formula(top, f));
+        value_vec.push(calculate_formula(top, f, map));
     }
     types::Value::Iterator(value_vec)
 }
@@ -838,13 +847,15 @@ fn calculate_iterator(
 fn calculate_reference(
     string: String,
     f: Option<&impl Fn(String) -> types::Value>,
+    map: &HashMap<SData, f64>,
 ) -> types::Value {
     match f {
         Some(f) => match f(string) {
             types::Value::Number(x) => types::Value::Number(x),
             types::Value::Text(s) => calculate_formula(
-                parse_formula::parse_string_to_formula(&s, None::<NoCustomFunction>),
+                parse_formula::parse_string_to_formula(&s, None::<NoCustomFunction>, map),
                 Some(f),
+                map,
             ),
             types::Value::Boolean(x) => types::Value::Boolean(x),
             types::Value::Error(types::Error::Value) => types::Value::Error(types::Error::Value),
@@ -861,14 +872,15 @@ fn calculate_bool(
     mut exp: types::Expression,
     f: Option<&impl Fn(String) -> types::Value>,
     f_bool: fn(bool1: bool, bool2: bool) -> bool,
+    map: &HashMap<SData, f64>,
 ) -> types::Value {
     let mut result = match exp.values.pop() {
-        Some(formula) => calculate_formula(formula, f),
+        Some(formula) => calculate_formula(formula, f, map),
         None => types::Value::Error(types::Error::Argument),
     };
     result = cast_value_to_boolean(result);
     while let Some(top) = exp.values.pop() {
-        result = calculate_boolean_operator(result, calculate_formula(top, f), f_bool);
+        result = calculate_boolean_operator(result, calculate_formula(top, f, map), f_bool);
     }
     convert_iterator_to_result(result, f_bool)
 }
@@ -877,14 +889,15 @@ fn calculate_or(
     mut exp: types::Expression,
     f: Option<&impl Fn(String) -> types::Value>,
     f_bool: fn(bool1: bool, bool2: bool) -> bool,
+    map: &HashMap<SData, f64>,
 ) -> types::Value {
     let mut result = match exp.values.pop() {
-        Some(formula) => calculate_formula(formula, f),
+        Some(formula) => calculate_formula(formula, f, map),
         None => types::Value::Error(types::Error::Argument),
     };
     result = cast_value_to_boolean(result);
     while let Some(top) = exp.values.pop() {
-        result = calculate_boolean_operator_or(result, calculate_formula(top, f), f_bool);
+        result = calculate_boolean_operator_or(result, calculate_formula(top, f, map), f_bool);
     }
     convert_iterator_to_result_or(result, f_bool)
 }
@@ -893,14 +906,15 @@ fn calculate_xor(
     mut exp: types::Expression,
     f: Option<&impl Fn(String) -> types::Value>,
     f_bool: fn(bool1: bool, bool2: bool) -> bool,
+    map: &HashMap<SData, f64>,
 ) -> types::Value {
     let mut result = match exp.values.pop() {
-        Some(formula) => calculate_formula(formula, f),
+        Some(formula) => calculate_formula(formula, f, map),
         None => types::Value::Error(types::Error::Argument),
     };
     result = cast_value_to_boolean(result);
     while let Some(top) = exp.values.pop() {
-        result = calculate_boolean_operator_xor(result, calculate_formula(top, f), f_bool);
+        result = calculate_boolean_operator_xor(result, calculate_formula(top, f, map), f_bool);
     }
     convert_iterator_to_result_xor(result, f_bool)
 }
@@ -909,11 +923,15 @@ fn calculate_collective_operator(
     mut collective_value: types::Value,
     mut exp: types::Expression,
     f: Option<&impl Fn(String) -> types::Value>,
-    f_collective: fn(num1: f32, num2: f32) -> f32,
+    f_collective: fn(num1: f64, num2: f64) -> f64,
+    map: &HashMap<SData, f64>,
 ) -> types::Value {
     while let Some(top) = exp.values.pop() {
-        collective_value =
-            calculate_numeric_operator(collective_value, calculate_formula(top, f), f_collective);
+        collective_value = calculate_numeric_operator(
+            collective_value,
+            calculate_formula(top, f, map),
+            f_collective,
+        );
     }
     collective_value
 }
@@ -922,12 +940,13 @@ fn calculate_collective_product_operator(
     mut collective_value: types::Value,
     mut exp: types::Expression,
     f: Option<&impl Fn(String) -> types::Value>,
-    f_collective: fn(num1: f32, num2: f32) -> f32,
+    f_collective: fn(num1: f64, num2: f64) -> f64,
+    map: &HashMap<SData, f64>,
 ) -> types::Value {
     while let Some(top) = exp.values.pop() {
         collective_value = calculate_numeric_product_operator(
             collective_value,
-            calculate_formula(top, f),
+            calculate_formula(top, f, map),
             f_collective,
         );
     }
@@ -941,7 +960,8 @@ fn calculate_average(
     mut collective_value: types::Value,
     mut exp: types::Expression,
     f: Option<&impl Fn(String) -> types::Value>,
-    f_collective: fn(num1: f32, num2: f32) -> f32,
+    f_collective: fn(num1: f64, num2: f64) -> f64,
+    map: &HashMap<SData, f64>,
 ) -> types::Value {
     let mut element_count = 0;
     while let Some(top) = exp.values.pop() {
@@ -949,7 +969,7 @@ fn calculate_average(
         collective_value = calculate_average_operator(
             &mut element_count,
             collective_value,
-            calculate_formula(top, f),
+            calculate_formula(top, f, map),
             f_collective,
         );
     }
@@ -958,7 +978,7 @@ fn calculate_average(
     } else {
         calculate_numeric_operator(
             collective_value,
-            types::Value::Number(element_count as f32),
+            types::Value::Number(element_count as f64),
             calculate_divide_operator,
         )
     }
@@ -972,13 +992,13 @@ fn calculate_days(date_pair: (types::Value, types::Value)) -> types::Value {
     let (start, end) = date_pair;
     match (start, end) {
         (types::Value::Date(start), types::Value::Date(end)) => {
-            types::Value::Number((end - start).num_days() as f32)
+            types::Value::Number((end - start).num_days() as f64)
         }
         (types::Value::Blank, types::Value::Date(end)) => {
-            types::Value::Number((end - begin_of_date).num_days() as f32)
+            types::Value::Number((end - begin_of_date).num_days() as f64)
         }
         (types::Value::Date(start), types::Value::Blank) => {
-            types::Value::Number((begin_of_date - start).num_days() as f32)
+            types::Value::Number((begin_of_date - start).num_days() as f64)
         }
         (types::Value::Blank, types::Value::Blank) => types::Value::Number(0.0),
         _ => types::Value::Error(types::Error::Value),
@@ -1055,9 +1075,8 @@ fn calculate_isblank(value: types::Value) -> types::Value {
         }
         types::Value::Error(types::Error::Value) => types::Value::Boolean(types::Boolean::True),
         types::Value::Error(types::Error::Reference) => types::Value::Boolean(types::Boolean::True),
-        
+
         _ => types::Value::Boolean(types::Boolean::False),
-        
     }
 }
 
@@ -1065,38 +1084,44 @@ fn calculate_function(
     func: types::Function,
     exp: types::Expression,
     f: Option<&impl Fn(String) -> types::Value>,
+    map: &HashMap<SData, f64>,
 ) -> types::Value {
     match func {
-        types::Function::Abs => calculate_abs(get_value(exp, f)),
+        types::Function::Abs => calculate_abs(get_value(exp, f, map)),
         types::Function::Sum => {
-            calculate_collective_operator(types::Value::Number(0.0), exp, f, |n1, n2| n1 + n2)
+            calculate_collective_operator(types::Value::Number(0.0), exp, f, |n1, n2| n1 + n2, map)
         }
-        types::Function::Product => {
-            calculate_collective_product_operator(types::Value::Blank, exp, f, |n1, n2| n1 * n2)
-        }
+        types::Function::Product => calculate_collective_product_operator(
+            types::Value::Blank,
+            exp,
+            f,
+            |n1, n2| n1 * n2,
+            map,
+        ),
         types::Function::Average => {
-            calculate_average(types::Value::Number(0.00), exp, f, |n1, n2| n1 + n2)
+            calculate_average(types::Value::Number(0.00), exp, f, |n1, n2| n1 + n2, map)
         }
-        types::Function::Or => calculate_or(exp, f, |n1, n2| n1 || n2),
-        types::Function::And => calculate_bool(exp, f, |n1, n2| n1 && n2),
-        types::Function::Xor => calculate_xor(exp, f, |n1, n2| n1 ^ n2),
-        types::Function::Not => calculate_negation(get_value(exp, f)),
-        types::Function::Negate => calculate_negate(get_value(exp, f)),
-        types::Function::Days => calculate_days(get_date_values(exp, f)),
-        types::Function::Right => calculate_right(get_number_and_string_values(exp, f)),
-        types::Function::Left => calculate_left(get_number_and_string_values(exp, f)),
-        types::Function::Iff => calculate_iff(get_iff_values(exp, f)),
-        types::Function::IsBlank => calculate_isblank(get_value(exp, f)),
+        types::Function::Or => calculate_or(exp, f, |n1, n2| n1 || n2, map),
+        types::Function::And => calculate_bool(exp, f, |n1, n2| n1 && n2, map),
+        types::Function::Xor => calculate_xor(exp, f, |n1, n2| n1 ^ n2, map),
+        types::Function::Not => calculate_negation(get_value(exp, f, map)),
+        types::Function::Negate => calculate_negate(get_value(exp, f, map)),
+        types::Function::Days => calculate_days(get_date_values(exp, f, map)),
+        types::Function::Right => calculate_right(get_number_and_string_values(exp, f, map)),
+        types::Function::Left => calculate_left(get_number_and_string_values(exp, f, map)),
+        types::Function::Iff => calculate_iff(get_iff_values(exp, f, map)),
+        types::Function::IsBlank => calculate_isblank(get_value(exp, f, map)),
     }
 }
 
 fn calculate_operation(
     exp: types::Expression,
     f: Option<&impl Fn(String) -> types::Value>,
+    map: &HashMap<SData, f64>,
 ) -> types::Value {
     match exp.op {
         types::Operator::Plus => {
-            let (value2, value1) = get_values(exp, f);
+            let (value2, value1) = get_values(exp, f, map);
             match value1 {
                 types::Value::Date(d) => add_days_to_date(d, value2),
                 _ => calculate_numeric_operator(value1, value2, |n1, n2| n1 + n2),
@@ -1104,7 +1129,7 @@ fn calculate_operation(
         }
 
         types::Operator::Minus => {
-            let (value2, value1) = get_values(exp, f);
+            let (value2, value1) = get_values(exp, f, map);
             match value1 {
                 types::Value::Date(d) => subtract_days_from_date(d, value2),
                 _ => calculate_numeric_operator(value1, value2, |n1, n2| n1 - n2),
@@ -1112,26 +1137,26 @@ fn calculate_operation(
         }
 
         types::Operator::Multiply => {
-            let (value2, value1) = get_values(exp, f);
+            let (value2, value1) = get_values(exp, f, map);
             calculate_numeric_operator(value1, value2, |n1, n2| n1 * n2)
         }
         types::Operator::Divide => {
-            let (value2, value1) = get_values(exp, f);
+            let (value2, value1) = get_values(exp, f, map);
             match value2 {
                 types::Value::Number(x) if x == 0.0 => types::Value::Error(types::Error::Div0),
                 _ => calculate_numeric_operator(value1, value2, calculate_divide_operator),
             }
         }
         types::Operator::Power => {
-            let (value2, value1) = get_values(exp, f);
+            let (value2, value1) = get_values(exp, f, map);
             calculate_numeric_operator(value1, value2, calculate_power_operator)
         }
         types::Operator::Concat => {
-            let (value2, value1) = get_values(exp, f);
+            let (value2, value1) = get_values(exp, f, map);
             calculate_string_operator(value1, value2, calculate_concat_operator)
         }
         types::Operator::Equal => {
-            let (value2, value1) = get_values(exp, f);
+            let (value2, value1) = get_values(exp, f, map);
             match (value1.clone(), value2.clone()) {
                 (types::Value::Date(l), types::Value::Date(r)) => {
                     compare_dates(l, r, |d1, d2| d1 == d2)
@@ -1140,7 +1165,7 @@ fn calculate_operation(
             }
         }
         types::Operator::NotEqual => {
-            let (value2, value1) = get_values(exp, f);
+            let (value2, value1) = get_values(exp, f, map);
             match (value1.clone(), value2.clone()) {
                 (types::Value::Date(l), types::Value::Date(r)) => {
                     compare_dates(l, r, |d1, d2| d1 != d2)
@@ -1149,7 +1174,7 @@ fn calculate_operation(
             }
         }
         types::Operator::Greater => {
-            let (value2, value1) = get_values(exp, f);
+            let (value2, value1) = get_values(exp, f, map);
             match (value1.clone(), value2.clone()) {
                 (types::Value::Date(l), types::Value::Date(r)) => {
                     compare_dates(l, r, |d1, d2| d1 > d2)
@@ -1158,7 +1183,7 @@ fn calculate_operation(
             }
         }
         types::Operator::Less => {
-            let (value2, value1) = get_values(exp, f);
+            let (value2, value1) = get_values(exp, f, map);
             match (value1.clone(), value2.clone()) {
                 (types::Value::Date(l), types::Value::Date(r)) => {
                     compare_dates(l, r, |d1, d2| d1 < d2)
@@ -1167,7 +1192,7 @@ fn calculate_operation(
             }
         }
         types::Operator::GreaterOrEqual => {
-            let (value2, value1) = get_values(exp, f);
+            let (value2, value1) = get_values(exp, f, map);
             match (value1.clone(), value2.clone()) {
                 (types::Value::Date(l), types::Value::Date(r)) => {
                     compare_dates(l, r, |d1, d2| d1 >= d2)
@@ -1176,7 +1201,7 @@ fn calculate_operation(
             }
         }
         types::Operator::LessOrEqual => {
-            let (value2, value1) = get_values(exp, f);
+            let (value2, value1) = get_values(exp, f, map);
             match (value1.clone(), value2.clone()) {
                 (types::Value::Date(l), types::Value::Date(r)) => {
                     compare_dates(l, r, |d1, d2| d1 <= d2)
@@ -1184,7 +1209,7 @@ fn calculate_operation(
                 _ => calculate_comparison_operator(value1, value2, |n1, n2| n1 <= n2),
             }
         }
-        types::Operator::Function(func) => calculate_function(func, exp, f),
+        types::Operator::Function(func) => calculate_function(func, exp, f, map),
     }
 }
 
@@ -1205,12 +1230,13 @@ fn compare_dates(
 pub fn calculate_formula(
     formula: types::Formula,
     f: Option<&impl Fn(String) -> types::Value>,
+    map: &HashMap<SData, f64>,
 ) -> types::Value {
     match formula {
-        types::Formula::Operation(exp) => calculate_operation(exp, f),
+        types::Formula::Operation(exp) => calculate_operation(exp, f, map),
         types::Formula::Value(val) => val,
-        types::Formula::Reference(string) => calculate_reference(string, f),
-        types::Formula::Iterator(vec) => calculate_iterator(vec, f),
+        types::Formula::Reference(string) => calculate_reference(string, f, map),
+        types::Formula::Iterator(vec) => calculate_iterator(vec, f, map),
     }
 }
 
@@ -1227,7 +1253,7 @@ pub fn result_to_string(_value: types::Value) -> String {
     }
 }
 
-fn show_number(number: f32) -> String {
+fn show_number(number: f64) -> String {
     if number.is_infinite() {
         String::from("#DIV/0!")
     } else {
